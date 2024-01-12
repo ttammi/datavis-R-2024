@@ -1,0 +1,64 @@
+---
+title: "Review: Data wrangling & visualization"
+output: html_notebook
+---
+
+
+See also the **RStudio cheat sheet PDFs in Moodle**!
+
+### Reading the data 
+* Use readr functions, `data.table::fread()`, or dedicated libraries (e.g. foreign for SPSS)  
+* Check the structure and dimensions of your data  
+  - Do you have the right number of rows and columns?  
+  - Are variable names and data values encoded correctly?  
+  - Use e.g. `glimpse()`, `head()`, `str()`
+
+### Tidying the data
+* Check variable classes and transform them if needed  
+* See a summary of the data; are value ranges sensible?  
+* Plot your data to see distributions, spot outliers, etc.  
+
+#### Recoding values
+* **Recoding missing values**: use `na_if()` to recode specific values to NA (opposite function: `replace_na()`)  
+* **"Renaming values"** (i.e. one-to-one mapping): use `recode()` or `recode_factor()`  
+  - recode will preserve original factor levels while changing the labels; recode_factor will create new factor levels from new values  
+* **Recoding based on condition**: for dichotomous output variable, use `if_else()`. In more complex cases, use `case_when()`  
+  - with these functions, you can recode values based on conditions in another variable  
+* **Cutting a continuous variable into bins**: use `cut_width()`, `cut_number()`, or `cut_interval()`  
+
+#### Long and wide data
+* Use `gather()` and `spread()`, or `pivot_longer()` and `pivot_wider()` to transform between wide and long data frames  
+
+#### Other data wrangling functions
+
+* **Filtering**: use `filter()` to subset the data by condition; `drop_na()` drops rows with missing values  
+* **Selecting variables**: use `select()` to pick variables by name or condition (e.g. is_numeric)   
+* **Reordering rows and columns**: use `arrange()` to sort rows by a variable, and `relocate()` to change column order  
+* **Reordering factor levels**: use `fct_reorder()` to reorder based on another variable, and `fct_rev()` to reverse the order   
+* **Manipulating strings**: use stringr functions (see String manipulation PDF in Moodle)  
+
+### Combining data frames
+* **Concatenating data**: use `cbind()`, `rbind()`, `bind_cols()` or `bind_rows()`  
+* **Merging data**: use *join functions* - `full_join()`, `left_join()`, etc. to match by value  
+  - remember to specify matching variables!  
+
+### Creating new variables or summaries
+* **Row means or sums**: use `rowwise()` to group the data by row, and then mutate  
+* **Calculating aggregates**: use `summarise()` to aggregate values and reduce the number of rows; replace it with `mutate()` if you just wish to add the results to the existing data frame  
+  - `group_by()` the sub-group(s) you want to use. **Remember to ungroup!**  
+  - other useful functions: `count()`, `add_count()`, `distinct()`, `n_distinct()`, `n()`  
+* **Mutate/summarise multiple variables at once**: use `across()` to pick variables by name or condition (e.g. is_numeric)  
+  - note: across is replacing mutate_all, mutate_at, mutate_if functions
+
+### Plotting
+* Map variables to aesthetics  
+* Select your geom(s)  
+* **Use grouping variables** to set group, colour, shape, linetype, or facets: data should be in long format, i.e. all values of the grouping variable in one column  
+* **Adjusting scales:** use `scale_x_continuous()`, `scale_x_discrete()`, etc. to modify axis breaks, labels, and limits  
+* **Modify labels** with `labs()`  
+* **Modify colours** manually or with color palettes  
+* **Use themes** to modify the appearance of your plots  
+  - tweak components of a theme to make minor changes  
+  
+
+

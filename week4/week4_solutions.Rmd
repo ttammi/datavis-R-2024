@@ -1,0 +1,93 @@
+---
+title: "Week 4 Exercises"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+```
+
+
+# Exercise 1
+
+Read the region_scores.csv data (make sure you have the data file in the right folder). 
+
+```{r}
+df <- data.table::fread('data/region_scores.csv')
+
+```
+
+
+Create a figure that shows the distributions (density plots or histograms) of **age** and **score** in separate subplots (facets). What do you need to do first?  
+
+In the figure, set individual x-axis limits for age and score by modifying the `scales` parameter within `facet_wrap()`.
+
+**Hint**: To make things simpler, you can begin by selecting only the variables you need here, i.e. age and score.  
+
+```{r}
+df %>%
+  select(age, score) %>%
+  gather() %>%
+  ggplot(aes(value)) + 
+  geom_histogram(binwidth = 2) + # use histogram, not geom_bar or geom_col. geom_bar tries to plot counts per distinct value, but we want to plot counts per "bin" (here, 2 units) - this is computed automatically with geom_histogram.
+  facet_wrap(~key, scales = "free_x") +
+  theme_bw()
+
+
+# or density:
+
+df %>%
+  select(age, score) %>%
+  gather() %>%
+  ggplot(aes(value)) + 
+  geom_density() +
+  facet_wrap(~key, scales = "free_x") +
+  theme_bw()
+
+```
+# Exercise 2
+
+In this exercise, you will use the built-in iris dataset.
+
+```{r}
+head(iris)
+```
+
+
+#### 2.1 
+
+Make the data into long format: gather all variables except species into new variables **var** (variable names) and **measure** (numerical values). You should end up with 600 rows and 3 columns (Species, var, and measure). Assign the result into `iris_long`.
+
+```{r}
+iris_long <- iris %>%
+  gather(var, measure, -Species)
+```
+
+#### 2.2
+
+In `iris_long`, separate **var** into two variables: **part** (Sepal/Petal values) and **dim** (Length/Width).  
+
+Then, spread the measurement values to new columns that get their names from **dim**. You must create row numbers by dim group before doing this.  
+
+You should now have 300 rows of variables Species, part, Length and Width (and row numbers). Assign the result into `iris_wide`.
+
+```{r}
+iris_wide <- iris_long %>%
+  separate(var, into = c('part', 'dim')) %>%
+  group_by(dim) %>%
+  mutate(row = row_number()) %>%
+  ungroup %>%
+  spread(dim, measure)
+```
+
+
+#### 2.3
+
+Using `iris_wide`, plot length on the x-axis and width on the y-axis. Colour the points by part.
+
+```{r}
+iris_wide %>%
+  ggplot(aes(Length, Width, colour = part)) + 
+  geom_jitter(alpha = .5) +
+  theme_bw()
+```

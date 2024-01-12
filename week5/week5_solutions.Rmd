@@ -1,0 +1,190 @@
+---
+title: "Week 5 Exercises"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+```
+
+
+Read the file timeuse_tidy.rds with `readRDS()`. The file contains the dataset that we tidied in the exercise session: records of daily time use from participants over multiple days. Note that since the data has been stored as rds (R-specific format), column types and factor levels are as we left them, and don't need to be re-corrected.
+
+```{r}
+tidytime <- readRDS('data/timeuse_tidy.rds')
+```
+
+```{r}
+tidytime
+```
+
+# Exercise 1
+
+#### 1.1
+
+Create a new variable that contains combined activity classes: "Work or school" (Work, Business, Education), "Free time" (Shopping, Social / Leisure, Home, Vacation), and "Other".  
+
+Calculate the mean time spent on each of the combined activity classes, grouped by **weekday, participant ID, and occ_full_time**. 
+
+
+```{r message=F}
+# with case_when:
+work_school_vars <- c("Work", "Business", "Education")
+freetime_vars <- c("Shopping", "Social / Leisure", "Home", "Vacation")
+
+tidytime <- tidytime %>% 
+  mutate(activity_class_combined = case_when(activity_class %in% work_school_vars ~ "Work or school",
+                                             activity_class %in% freetime_vars ~ "Free time",
+                                             TRUE ~ "Other")) 
+
+# with recode:
+tidytime %>%
+  mutate(activity_class_combined = recode(activity_class, "Work" = "Work or school", "Business" = "Work or school", "Education" = "Work or school", "Shopping" = "Free time", "Social / Leisure" = "Free time", "Home" = "Free time", "Vacation" = "Free time", .default = "Other") %>% factor)
+
+
+# (a repeated if_else could also be used, but case_when is recommended over that)
+
+```
+
+```{r}
+# calculate means
+# since the classes have been combined, we first need to sum up the minutes within each new category
+time_groups <- tidytime %>%
+  group_by(across(c(-time_spent, -activity_class))) %>%
+  summarise(time_spent = sum(time_spent)) %>%
+  group_by(weekday, occ_full_time, activity_class_combined, indivID) %>%
+  summarise(time_spent = mean(time_spent)) %>%
+  ungroup()
+  
+time_groups
+```
+
+
+
+#### 1.2 
+
+Visualise the means you calculated.
+
+**For example, something like this:**
+
+
+```{r fig.width=12}
+time_groups %>%
+  mutate(activity_class_combined = fct_relevel(activity_class_combined, "Other", after = Inf)) %>%
+  group_by(occ_full_time) %>%
+  mutate(work_n = n_distinct(indivID)) %>% # count participants to add n to plot
+  ungroup %>%
+  mutate(work_status = ifelse(occ_full_time == 1, "Work status: Full-time", "Work status: Other"),
+         work_status = paste0(work_status, " (n=", work_n, ")")) %>% # paste n to work_status
+  ggplot(aes(weekday, time_spent, fill = work_status)) + 
+  geom_violin(alpha = .2, scale = "width", adjust = .5) + # note adjust = .5 -> closer density fit (default 1)
+  geom_dotplot(binaxis = "y", stackdir = "center", stackratio = .3, binwidth = 10, alpha = .1) + # add points
+  facet_grid(work_status~activity_class_combined) + 
+  theme_classic() + 
+  theme(legend.position = "none")
+
+
+
+```
+
+
+# Exercise 2
+
+#### 2.1
+
+What is computed in the code chunk below - what do the numbers tell you?  
+
+Can you think of another way to calculate the same thing?  
+
+**The code calculates the number of unique participants per day. For example, on 2016-10-14, 6 participants responded, and on 2016-10-15, 11 participants responded. (The same participant can be counted on multiple days, but only max once per day.)**
+
+```{r message=F}
+
+tidytime %>%
+  distinct(indivID, date) %>% # unique combinations of participants and dates
+  arrange(date) %>% # arrange by date
+  count(date) # count how many rows (= participants) there are per date
+
+# perhaps a more understandable syntax: n_distinct calculates the number of distinct (unique) observations
+tidytime %>%
+  group_by(date) %>%
+  summarise(n = n_distinct(indivID)) 
+
+```
+
+#### 2.2
+
+Plot the numbers from above (use points, lines, or whatever you think is suitable).  
+
+**For example**:
+
+```{r}
+
+tidytime %>%
+  distinct(date, indivID) %>%
+  count(date) %>%
+  ggplot(aes(date, n)) + geom_point() +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Date", y = "Participants", title = "Number of unique participants per day") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%d/%m/%Y")
+
+```
+
+
+# Exercise 3
+
+#### 3.1
+
+Count the **total number of participants** in the data.  
+
+```{r}
+tidytime %>%
+  distinct(indivID) %>% # only one row per participant ID
+  count()
+
+# or:
+tidytime %>%
+  summarise(total_participants = n_distinct(indivID))
+  
+```
+
+#### 3.2
+
+For each participant, count the **number of separate days** that they recorded their time use on.  
+
+```{r message=F}
+tidytime %>%
+  group_by(indivID) %>%
+  summarise(n = n_distinct(date)) 
+  
+```
+
+# Exercise 4
+
+Explain step by step what happens in the code chunk below, and what the final figure represents.
+
+**The figure shows how long each participant recorded their time use for (start and end dates), and also the distribution of participants/data points over time. For each participant, the line shows the time span of their observations, and the data points are also shown (dates on which there are observations for each participant). The lines are arranged by start date, and the starting month is coloured.**
+
+
+```{r fig.height=20, fig.width=10}
+tidytime %>%
+  group_by(indivID) %>% # group by participant
+  mutate(start_date = min(date)) %>% # create start_date variable = the first recorded date for each participant
+  ungroup %>%
+  mutate(indivID = factor(indivID), # mutate indivID to factor for plotting purposes
+         indivID = fct_reorder(indivID, start_date) %>% fct_rev()) %>% # reorder participants based on start date, and then reverse the order with fct_rev, to have earliest dates at the top
+  ggplot(aes(date, indivID, colour = month(start_date, label = T))) + # colour is set by month, which is extracted from start_date
+  geom_line() + # date ranges of participants
+  geom_point(size=.5, alpha=.1) + # data points of participants
+  theme_bw() + # set theme
+  scale_y_discrete(breaks = "none") + # remove y-axis ticks and horizontal gridlines 
+  labs(x = "Date", y = "", colour = "Starting month") # set labels: y = "" sets y-axis label to none
+
+```
+
+
+
+
+

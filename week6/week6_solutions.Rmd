@@ -1,0 +1,163 @@
+---
+title: "Week 6 Exercises"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+```
+
+
+# Exercise 1
+
+The data frames df_w and df_f represent repeated measures data from 60 participants. Variables F1-F3 and W1-W3 are "sub-variables" that will be used to make two composite variables F_total and W_total, respectively. 
+
+```{r include=F}
+# simulating data
+set.seed(1)
+df_f <- data.frame(id = rep(1:60, each = 2) %>% as.character,
+                 session = rep(2:1, 60),
+                 group = rep(1:2, each = 60),
+                 F1 = sample.int(4, 120, replace = T) - 1,
+                 F2 = sample.int(4, 120, replace = T) - 1,
+                 F3 = (sample.int(4, 120, replace = T) - 1)) %>%
+  mutate(F3 = F3*(session-1), F2 = F2*(group-1)*(2-session)) %>%
+  mutate(group = factor(group))
+
+df_w <- data.frame(id = rep(1:60, each = 2) %>% as.character,
+                 session = rep(1:2, 60) %>% factor,
+                 group = rep(1:2, each = 60) %>% factor,
+                 W1 = sample.int(4, 120, replace = T) - 1,
+                 W2 = sample.int(4, 120, replace = T) - 1,
+                 W3 = sample.int(4, 120, replace = T) - 1)
+```
+
+
+#### 1.1
+
+Merge the two data frames together.
+
+```{r}
+
+df <- df_f %>%
+  mutate(session = factor(session)) %>% # when joining, variable classes must match. therefore session is transformed to factor
+  full_join(df_w, by = c("id", "session", "group"))
+
+
+```
+
+#### 1.2
+
+Using the merged data frame, create the **composite variables F_total and W_total, which are the sums of F1-F3 and W1-W3, respectively** (i.e. their values can range from 0 to 9).
+
+```{r}
+
+df <- df %>% 
+  group_by(id, session, group) %>%
+  mutate(F_total = sum(c_across(F1:F3)), # or just F1 + F2 + F3
+         W_total = sum(c_across(W1:W3))) %>%
+  ungroup
+
+df
+
+```
+
+
+
+# Exercise 2
+
+#### 2.1
+
+Visualise the distributions of F_total and W_total for the two groups and measurement sessions (for example as boxplots). 
+
+```{r}
+
+df %>%
+  gather(var, value, F_total, W_total) %>%
+  ggplot(aes(session, value, fill = group)) + 
+  geom_boxplot() + 
+  facet_wrap(~var) + 
+  theme_minimal()
+
+```
+
+#### 2.2
+
+Fit a linear regression model with F_total as the DV, and session and group as predictors.  
+
+```{r}
+
+fit <- lm(F_total ~ session + group, data = df) # a model with main effects
+# note that session and group should be factors, not integers!
+  
+summary(fit)
+
+```
+
+#### 2.3
+
+Look at the means of F_total by group and session. How are they linked to the linear regression model coefficients? 
+
+**Since the model fit has only the main effects for group and session, the coefficients represent the difference in means between groups (2 - 1) and sessions (2 - 1).** 
+
+```{r}
+df %>%
+  group_by(group) %>%
+  summarise(mean_F = mean(F_total)) %>%
+  mutate(diff = diff(mean_F)) # diff = coefficient group2
+
+df %>%
+  group_by(session) %>%
+  summarise(mean_F = mean(F_total)) %>%
+  mutate(diff = diff(mean_F)) # diff = coefficient session2
+
+```
+
+
+
+# Exercise 3
+
+Visualise the [anscombe dataset](https://rdrr.io/r/datasets/anscombe.html) using ggplot2.
+
+**The key is to get the data into long format, and separate the values (x/y) and sets (1-4) into variables of their own. A few example solutions below.**
+
+
+```{r}
+# method 1
+# use pivot_longer and separate set and value simultaneously
+anscombe_long <- anscombe %>%
+  pivot_longer(everything(), 
+               names_to = c(".value", "set"), 
+               names_pattern = "(.)(.)") # the names_pattern argument uses regular expressions (inside brackets for each column). The dot . matches any character (except a new line)
+
+```
+
+
+```{r}
+# method 2
+# use gather, then separate set and variable, then spread 
+anscombe_long <- anscombe %>%
+  gather() %>%
+  separate(key, into = c("variable", "set"), sep = 1) %>%
+  group_by(variable) %>%
+  mutate(row = row_number()) %>%
+  spread(variable, value) %>%
+  select(-row) %>%
+  ungroup
+
+```
+
+
+```{r}
+# plot the data
+anscombe_long %>%
+  ggplot(aes(x, y)) + 
+  geom_point() +
+  facet_wrap(~set) +
+  geom_smooth(method = "lm", se = F) + 
+  labs(title = "The anscombe data") +
+  theme_bw()
+
+```
+
+
